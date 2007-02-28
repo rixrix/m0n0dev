@@ -47,7 +47,6 @@ Notes to self:
 // Please set me to the path you checked out the m0n0wall FreeBSD 6 branch to.
 $dirs['mwroot'] = "/usr/m0n06branch";	// no trailing slash please!
 
-
 // --[ package versions ]------------------------------------------------------
 
 $php_version = "php-4.4.5";
@@ -123,6 +122,15 @@ $error_codes = array(
 	/* 5 */ "invalid image specified!",
 	/* 6 */ "image already exists!"
 );
+
+
+// --[ phone home ]------------------------------------------------------------
+
+$h["update"] = "checks for m0n0dev updates";
+function _update() {
+	$s = file_get_contents("http://www.askozia.com/vcheck.php?p=m0n0dev&cv=0.1.0");
+	print("$s\n");
+}
 
 
 // --[ the functions! ]--------------------------------------------------------
@@ -902,7 +910,7 @@ function package($platform, $version, $image_name) {
 			"-c \"boot/boot.catalog\" -d -r -publisher \"m0n0.ch\" ".
 			"-p \"Your Name\" -V \"m0n0wall_cd\" -o \"m0n0wall.iso\" tmp/cdroot/");
 			
-		_exec("mv m0n0wall.iso ". $dirs['images'] ."/$platform-$version-". basename($image_name) .".iso");
+		_exec("mv m0n0wall.iso ". $dirs['images'] ."/cdrom-$version-". basename($image_name) .".iso");
 	}
 	
 	_exec("rm -rf tmp");
@@ -986,19 +994,21 @@ function _prompt($msg, $duration=0) {
 function _usage($err=0) {
 	global $error_codes;
 	
+	print "./m0n0dev.php patch everything\n";
 	print "./m0n0dev.php patch bootloader\n";
 	print "./m0n0dev.php patch kernel\n";
 	print "./m0n0dev.php patch syslogd\n";
-	print "./m0n0dev.php patch everything\n";
-	print "./m0n0dev.php build kernel kernel_name\n";
+	print "./m0n0dev.php build everything\n";
+	print "./m0n0dev.php build ports\n";
+	print "./m0n0dev.php build packages\n";
 	print "./m0n0dev.php build kernels\n";
+	print "./m0n0dev.php build kernel kernel_name\n";
 	print "./m0n0dev.php build bootloader\n";
 	print "./m0n0dev.php build tools\n";
-	print "./m0n0dev.php build package_name\n";
-	print "./m0n0dev.php build everything\n";
 	print "./m0n0dev.php populate everything iamge_name\n";
 	print "./m0n0dev.php package platform_name version_string image_name\n";
 	print "./m0n0dev.php package all version_string image_name\n";
+	print "./m0n0dev.php update\n";
 	
 	print "Help is available by prefixing the command with \"help\" (i.e. help create)\n";
 	
@@ -1027,6 +1037,11 @@ $h["populate"] = "available populate options: base, etc, defaultconf, zoneinfo, 
 // nothing to do, here's what's possible
 if($argc == 1) {
 	_usage();
+
+// phone home and check version
+} else if($argv[1] == "update") {
+	_update();
+	exit();
 
 // here's some help if it's available
 } else if($argv[1] == "help") {
