@@ -31,18 +31,21 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-/*
-
-Notes to self:
+/*	Notes to self:
 
 	- sanity checks aren't performed in a regular way (some pre, some post call)
 	- patching is going to get NASTY if states aren't recorded properly
 	- mfsroot and .img sizes can be calculated automatically but they need a 
 	  pad of "x" bytes.  Since I can't set this accurately, I'll stick to static
 	  values for the time being
-	- logging system is a bit overused, the commands say what's going on
+	- logging system is a bit overused, the commands say what's going on	
 	
+	Changelog:
+		2007-02-28 - v0.1.0 - first public release
+		2007-03-02 - v0.1.1	- added "generic-pc-smp" platform support
 */
+
+
 
 // Please set me to the path you checked out the m0n0wall FreeBSD 6 branch to.
 $dirs['mwroot'] = "/usr/m0n06branch";	// no trailing slash please!
@@ -64,12 +67,13 @@ $ipsec_tools_version = "ipsec-tools-0.6.6";
 
 $mfsroot_size = 13312;
 $generic_pc_size = 10240;
+$generic_pc_smp_size = 11264;
 $wrap_soekris_size = 7808;
 
 
 // --[ possible platforms and kernels ]----------------------------------------
 
-$platform_list = "net45xx net48xx wrap generic-pc generic-pc-cdrom";
+$platform_list = "net45xx net48xx wrap generic-pc generic-pc-cdrom generic-pc-smp";
 $platforms = explode(" ", $platform_list);
 
 
@@ -128,7 +132,7 @@ $error_codes = array(
 
 $h["update"] = "checks for m0n0dev updates";
 function _update() {
-	$s = file_get_contents("http://www.askozia.com/vcheck.php?p=m0n0dev&cv=0.1.0");
+	$s = file_get_contents("http://www.askozia.com/vcheck.php?p=m0n0dev&cv=0.1.1");
 	print("$s\n");
 }
 
@@ -179,21 +183,13 @@ function patch_everything() {
 
 $h["build kernel"] = "(re)builds and compresses the specified platform's kernel ($platform_list)"; 
 function build_kernel($platform) {
-	global $dirs, $platforms;
+	global $dirs;
 	
-	// sanity check
-	if(array_search($platform, $platforms) === false) {
-		_usage(3);
-	}
+	$kernel = _platform_to_kernel($platform);
+
+	_exec("cp ". $dirs['kernelconfigs'] ."/M0N0WALL_* /sys/i386/conf/");
+	_exec("cp ". $dirs['files'] ."/M0N0WALL_GENERIC_SMP* /sys/i386/conf/");
 	
-	if($platform == "generic-pc-cdrom") {
-		$platform = "generic-pc";
-	}
-	$platform == "generic-pc" ?
-		$kernel = "M0N0WALL_GENERIC" :
-		$kernel = "M0N0WALL_" . strtoupper($platform);
-				
-	_exec("cp ". $dirs['kernelconfigs'] ."/$kernel* /sys/i386/conf/");
 	if(file_exists("/sys/i386/compile/$kernel")) {
 		_exec("rm -rf /sys/i386/compile/$kernel");
 	}
@@ -818,7 +814,7 @@ function populate_everything($image_name) {
 // TODO: this is quite large and ugly
 $h["package"] = "package the specified image directory into an .img for the specified platform and stamp as version (i.e. package generic-pc 1.3b2copy testimage)";
 function package($platform, $version, $image_name) {
-	global $dirs, $mfsroot_size, $generic_pc_size, $wrap_soekris_size;
+	global $dirs, $mfsroot_size, $generic_pc_size, $generic_pc_smp_size, $wrap_soekris_size;
 	
 	_log("packaging $image_name $version for $platform...");
 	
@@ -829,15 +825,11 @@ function package($platform, $version, $image_name) {
 		mkdir("tmp/mnt");
 	}
 	
-	if($platform == "generic-pc" || $platform == "generic-pc-cdrom") {
-		$kernel = "M0N0WALL_GENERIC";
-	} else {
-		$kernel = "M0N0WALL_" . strtoupper($platform);
-	}	
-
+	$kernel = _platform_to_kernel($platform);
+	
 	// mfsroots
 	if(!file_exists($dirs['mfsroots'] ."/$platform-$version-". basename($image_name) .".gz")) {
-		
+				
 		_exec("dd if=/dev/zero of=tmp/mfsroot bs=1k count=$mfsroot_size");
 		_exec("mdconfig -a -t vnode -f tmp/mfsroot -u 0");
 	
@@ -847,10 +839,16 @@ function package($platform, $version, $image_name) {
 		_exec("mount /dev/md0c tmp/mnt");
 		_exec("cd tmp/mnt; tar -cf - -C $image_name ./ | tar -xpf -");
 		
+		if($platform == "generic-pc-smp") {
+			_exec("cd tmp/mnt/usr/local/www/; patch < ". $dirs['files'] ."/generic-pc-smp.patch");
+		}
+		
 		// modules		
 		mkdir("tmp/mnt/boot");
 		mkdir("tmp/mnt/boot/kernel");
-		if($platform == "generic-pc" || $platform == "generic-pc-cdrom") {
+		if($platform == "generic-pc" || 
+			$platform == "generic-pc-cdrom" ||
+			$platform == "generic-pc-smp") {
 			_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/acpi/acpi/acpi.ko tmp/mnt/boot/kernel/");
 		}
 		_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/dummynet/dummynet.ko tmp/mnt/boot/kernel/");
@@ -869,9 +867,14 @@ function package($platform, $version, $image_name) {
 	// .img
 	if($platform != "generic-pc-cdrom" && !file_exists($dirs['images'] ."/$platform-$version-". basename($image_name) .".img")) {
 		
-		$platform == "generic-pc" ?
-			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$generic_pc_size") :	
+		if($platform == "generic-pc") {
+			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$generic_pc_size");
+		} else if($platform == "generic-pc-smp") {
+			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$generic_pc_smp_size");
+		} else {
 			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$wrap_soekris_size");
+		}
+			
 		_exec("mdconfig -a -t vnode -f tmp/image.bin -u 0");
 		_exec("bsdlabel -Brw -b /usr/obj/usr/src/sys/boot/i386/boot2/boot md0 auto");
 		_exec("newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md0a");
@@ -882,6 +885,8 @@ function package($platform, $version, $image_name) {
 		mkdir("tmp/mnt/boot");
 		mkdir("tmp/mnt/boot/kernel");
 	    _exec("cp /usr/obj/usr/src/sys/boot/i386/loader/loader tmp/mnt/boot/");
+		$platform == "generic-pc-smp" ?
+		_exec("cp ". $dirs['boot'] ."/generic-pc/loader.rc tmp/mnt/boot/") :
 		_exec("cp ". $dirs['boot'] ."/$platform/loader.rc tmp/mnt/boot/");
 	
 		// conf
@@ -950,6 +955,25 @@ function _is_patched($package_version) {
 	global $dirs;
 	
 	return(file_exists($dirs['packages'] ."/$package_version/$package_version.patched"));
+}
+
+
+function _platform_to_kernel($platform) {
+	global $platforms;
+	
+	if(array_search($platform, $platforms) === false) {
+		_usage(3);
+	}
+	
+	if($platform == "generic-pc-cdrom" || $platform == "generic-pc") {
+		$kernel = "M0N0WALL_GENERIC";
+	} else if($platform == "generic-pc-smp") {
+		$kernel = "M0N0WALL_GENERIC_SMP";
+	} else {
+		$kernel = "M0N0WALL_" . strtoupper($platform);
+	}
+
+	return $kernel;
 }
 
 
