@@ -52,7 +52,7 @@ $dirs['mwroot'] = "/usr/m0n06branch";	// no trailing slash please!
 
 // --[ package versions ]------------------------------------------------------
 
-$php_version = "php-4.4.5";
+$php_version = "php-4.4.6";
 $radius_version = "radius-1.2.5";
 $mini_httpd_version = "mini_httpd-1.19";
 $wol_version = "wol-0.7.1";
@@ -463,6 +463,9 @@ function build_tools() {
 	
 	_exec("cd ". $dirs['tools'] ."; gcc -o verifysig -lcrypto verifysig.c");
 	_log("built verifysig");
+	
+	_exec("cd ". $dirs['tools'] ."; gcc -o wrapresetbtn wrapresetbtn.c");
+	_log("built wrapresetbtn");
 }
 
 
@@ -500,6 +503,8 @@ function build_ports() {
 $h["build everything"] = "(re)builds all packages, kernels and the bootloader";
 function build_everything() {
 
+	build_syslogd();
+	build_clog();
 	build_packages();
 	build_ports();
 	build_tools();
@@ -746,6 +751,7 @@ function populate_tools($image_name) {
 		"install -s minicron $image_name/usr/local/bin; ".
 		"install -s verifysig $image_name/usr/local/bin; ".
 		"install runmsntp.sh $image_name/usr/local/bin; ".
+		"install wrapresetbtn $image_name/usr/local/sbin; ".
 		"install ppp-linkup vpn-linkdown vpn-linkup $image_name/usr/local/sbin");
 }
 
