@@ -466,6 +466,9 @@ function build_tools() {
 	
 	_exec("cd ". $dirs['tools'] ."; gcc -o wrapresetbtn wrapresetbtn.c");
 	_log("built wrapresetbtn");
+	
+	_exec("cd ". $dirs['tools'] ."; gcc -o voucher -lcrypto -O2 voucher.c");
+	_log("built voucher");
 }
 
 
@@ -752,6 +755,7 @@ function populate_tools($image_name) {
 		"install -s verifysig $image_name/usr/local/bin; ".
 		"install runmsntp.sh $image_name/usr/local/bin; ".
 		"install wrapresetbtn $image_name/usr/local/sbin; ".
+		"install -s voucher $image_name/usr/local/bin; ".
 		"install ppp-linkup vpn-linkdown vpn-linkup $image_name/usr/local/sbin");
 }
 
