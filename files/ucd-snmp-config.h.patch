@@ -1,0 +1,11 @@
+--- config.h.orig	Thu Sep 13 14:34:15 2007
++++ config.h	Thu Sep 13 14:34:32 2007
+@@ -54,7 +54,7 @@
+ /* #undef SNMP_NO_DEBUGGING */           /* if defined, we optimize the code
+                                       to exclude all debugging calls. */
+ #define SNMP_ALWAYS_DEBUG 1
+-                                      ignore the -D flag passed to the cmds */
++                                      /* ignore the -D flag passed to the cmds */
+ 
+ /* reverse encoding BER packets is both faster and more efficient in space. */
+ #define USE_REVERSE_ASNENCODING       1

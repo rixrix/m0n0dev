@@ -7,7 +7,7 @@
     All rights reserved.
     
     Authors:
-        Michael Iedema <michael.iedema@askozia.com>.
+        Michael Iedema <michael@askozia.com>.
     
     Redistribution and use in source and binary forms, with or without
     modification, are permitted provided that the following conditions are met:
@@ -31,72 +31,54 @@
     POSSIBILITY OF SUCH DAMAGE.
 */
 
-/*	Notes to self:
-
-	- sanity checks aren't performed in a regular way (some pre, some post call)
-	- patching is going to get NASTY if states aren't recorded properly
-	- mfsroot and .img sizes can be calculated automatically but they need a 
-	  pad of "x" bytes.  Since I can't set this accurately, I'll stick to static
-	  values for the time being
-	- logging system is a bit overused, the commands say what's going on	
-	
-	Changelog:
-		2007-02-28 - v0.1.0 - first public release
-		2007-03-02 - v0.1.1	- added "generic-pc-smp" platform support
-*/
-
-
-
 // Please set me to the path you checked out the m0n0wall FreeBSD 6 branch to.
-$dirs['mwroot'] = "/usr/m0n06branch";	// no trailing slash please!
+$dirs['mwroot'] = "/root/m0n0wall";	// no trailing slash please!
 
 // --[ package versions ]------------------------------------------------------
 
-$php_version = "php-4.4.6";
-$radius_version = "radius-1.2.5";
-$mini_httpd_version = "mini_httpd-1.19";
-$wol_version = "wol-0.7.1";
-$ez_ipupdate_version = "ez-ipupdate-3.0.11b8";
-$bpalogin_version = "bpalogin-2.0.2";
-$ucd_snmp_version = "ucd-snmp-4.2.7";
-$mpd_version = "mpd-3.18";
-$ipsec_tools_version = "ipsec-tools-0.6.6";
+$php_version			= "php-4.4.7";
+$radius_version			= "radius-1.2.5";
+$mini_httpd_version		= "mini_httpd-1.19";
+$wol_version			= "wol-0.7.1";
+$ez_ipupdate_version	= "ez-ipupdate-3.0.11b8";
+$bpalogin_version		= "bpalogin-2.0.2";
+$ucd_snmp_version		= "ucd-snmp-4.2.7";
+$mpd_version			= "mpd-3.18";
+$ipsec_tools_version 	= "ipsec-tools-0.7";
 
 
 // --[ image sizes ]-----------------------------------------------------------
 
-$mfsroot_size = 13312;
-$generic_pc_size = 10240;
-$generic_pc_smp_size = 11264;
-$wrap_soekris_size = 7808;
+$mfsroot_pad	= 1024;
+$image_pad		= 1024;
 
 
 // --[ possible platforms and kernels ]----------------------------------------
 
-$platform_list = "net45xx net48xx wrap generic-pc generic-pc-cdrom generic-pc-smp";
-$platforms = explode(" ", $platform_list);
+$platform_list	= "net45xx net48xx wrap generic-pc generic-pc-cdrom";//generic-pc-smp";
+$platforms		= explode(" ", $platform_list);
 
 
 // --[ sanity checks and env info ]--------------------------------------------
 
-$dirs['pwd'] = rtrim(shell_exec("pwd"), "\n");
-$dirs['boot'] = $dirs['mwroot'] . "/build/boot";
-$dirs['kernelconfigs'] = $dirs['mwroot'] . "/build/kernelconfigs";
-$dirs['minibsd'] = $dirs['mwroot'] . "/build/minibsd";
-$dirs['patches'] = $dirs['mwroot'] . "/build/patches";
-$dirs['tools'] = $dirs['mwroot'] . "/build/tools";
-$dirs['captiveportal'] = $dirs['mwroot'] . "/captiveportal";
-$dirs['etc'] = $dirs['mwroot'] . "/etc";
-$dirs['phpconf'] = $dirs['mwroot'] . "/phpconf";
-$dirs['webgui'] = $dirs['mwroot'] . "/webgui";
-$dirs['files'] = $dirs['pwd'] . "/files";
+$dirs['pwd']			= rtrim(shell_exec("pwd"), "\n");
+$dirs['boot']			= $dirs['mwroot'] . "/build/boot";
+$dirs['kernelconfigs']	= $dirs['mwroot'] . "/build/kernelconfigs";
+$dirs['minibsd']		= $dirs['mwroot'] . "/build/minibsd";
+$dirs['patches']		= $dirs['mwroot'] . "/build/patches";
+$dirs['tools']			= $dirs['mwroot'] . "/build/tools";
+$dirs['captiveportal']	= $dirs['mwroot'] . "/captiveportal";
+$dirs['etc']			= $dirs['mwroot'] . "/etc";
+$dirs['phpconf']		= $dirs['mwroot'] . "/phpconf";
+$dirs['webgui']			= $dirs['mwroot'] . "/webgui";
+$dirs['files']			= $dirs['pwd'] . "/files";
 
 // check to make sure that the directories we expect are there
 foreach($dirs as $expected_dir) {
 	if(!file_exists($expected_dir)) {
 		_log("FATAL: missing directory ($expected_dir)\n".
 			"Did you set the \"mwroot\" at the top of this script to the correct path?");
-		exit();
+		exit(1);
 	}
 }
 
@@ -114,26 +96,6 @@ foreach($dirs as $dir) {
 	if(!file_exists($dir)) {
 		mkdir($dir);
 	}	
-}
-
-
-$error_codes = array(
-	/* 0 */ "",
-	/* 1 */ "not enough arguments!",
-	/* 2 */ "invalid argument!",
-	/* 3 */ "invalid platform specified!",
-	/* 4 */ "invalid kernel specified!",
-	/* 5 */ "invalid image specified!",
-	/* 6 */ "image already exists!"
-);
-
-
-// --[ phone home ]------------------------------------------------------------
-
-$h["update"] = "checks for m0n0dev updates";
-function _update() {
-	$s = file_get_contents("http://www.askozia.com/vcheck.php?p=m0n0dev&cv=0.1.1");
-	print("$s\n");
 }
 
 
@@ -171,6 +133,15 @@ function patch_bootloader() {
 	_log("patched bootloader");
 }
 
+$h["patch hostapd"] = "patches hostapd to add PID support";
+function patch_hostapd() {
+	global $dirs;
+	
+	_exec("cd /usr/src; patch < ". $dirs['patches'] ."/user/hostapd.patch");
+	
+	_log("patched hostapd");
+}
+
 
 $h["patch everything"] = "patches the bootloader, kernel and syslogd";
 function patch_everything() {
@@ -178,6 +149,7 @@ function patch_everything() {
 	patch_kernel();
 	patch_syslogd();
 	patch_bootloader();
+	patch_hostapd();
 }
 
 
@@ -397,8 +369,8 @@ function build_racoon() {
 	_prompt("After the screen appears, press TAB and then ENTER. (it's on the TODO list...)", 5);
 	_exec("cd /usr/ports/security/ipsec-tools; patch < ". $dirs['files'] ."/ipsec-tools-makefile.patch");
 	_exec("cd /usr/ports/security/ipsec-tools; make clean; make");
-	_exec("cd /usr/ports/security/ipsec-tools/work/$ipsec_tools_version; ".
-			"patch < ". $dirs['patches'] ."/packages/$ipsec_tools_version.patch");
+	/*_exec("cd /usr/ports/security/ipsec-tools/work/$ipsec_tools_version; ".
+			"patch < ". $dirs['patches'] ."/packages/ipsec-tools-0.6.6.patch");*/
 	_exec("cd /usr/ports/security/ipsec-tools/work/$ipsec_tools_version; make clean; make install");
 	
 	_log("built and patched racoon (albeit hackily)");
@@ -418,22 +390,30 @@ function build_mpd() {
 	_log("built and patched MPD");
 }
 
+$h["build ataidle"] = "(re)builds ataidle";
+function build_ataidle() {
+	
+	_exec("cd /usr/ports/sysutils/ataidle; make clean; make");
+	
+	_log("built ataidle");
+}
+
 
 $h["build ucdsnmp"] = "(re)builds and patches UCD-SNMP";
 function build_ucdsnmp() {
 	global $dirs, $ucd_snmp_version;
 
-	if(!file_exists($dirs['packages'] ."/$ucd_snmp_version")) {
+	if(!file_exists($dirs['packages'] ."/$ucd_snmp_version.tar.gz")) {
 		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://kent.dl.sourceforge.net/sourceforge/net-snmp/$ucd_snmp_version.tar.gz; ".
-				"tar zxf $ucd_snmp_version.tar.gz");
-		_log("fetched and untarred $ucd_snmp_version");
+				"fetch http://kent.dl.sourceforge.net/sourceforge/net-snmp/$ucd_snmp_version.tar.gz");
+		_log("fetched $ucd_snmp_version");
 	}
-	// TODO: this patch is taken from the 1.23 branch (2007-02-23) and should replace the 
-	// existing patch if it's confirmed to work
+	if(!file_exists($dirs['packages'] ."/$ucd_snmp_version")) {
+		_exec("cd ". $dirs['packages'] ."; tar zxf $ucd_snmp_version.tar.gz");
+	}
 	if(!_is_patched("$ucd_snmp_version")) {
 		_exec("cd ". $dirs['packages'] ."/$ucd_snmp_version; ". 
-				"patch < ". $dirs['files'] ."/ucd-snmp.patch");
+				"patch < ". $dirs['patches'] ."/packages/ucd-snmp.patch");
 		_stamp_package_as_patched("$ucd_snmp_version");
 	}
 
@@ -441,6 +421,9 @@ function build_ucdsnmp() {
 
 	_exec("cd ". $dirs['packages'] ."/$ucd_snmp_version; ".
 		"./configure  --without-openssl --disable-debugging --enable-static --enable-mini-agent --disable-privacy --disable-testing-code --disable-shared-version --disable-shared --disable-ipv6 '--with-out-transports=TCP Unix' '--with-mib-modules=mibII/interfaces mibII/var_route ucd-snmp/vmstat_freebsd2'");		
+
+	_exec("cd ". $dirs['packages'] ."/$ucd_snmp_version; ". 
+			"patch < ". $dirs['files'] ."/ucd-snmp-config.h.patch");
 
 	_exec("cd ". $dirs['packages'] ."/$ucd_snmp_version; make");
 
@@ -501,6 +484,7 @@ function build_ports() {
 	build_dhcprelay();
 	build_racoon();
 	build_mpd();
+	build_ataidle();
 }
 
 $h["build everything"] = "(re)builds all packages, kernels and the bootloader";
@@ -520,6 +504,12 @@ $h["create"] = "creates the directory structure for the given \"image_name\"";
 function create($image_name) {
 	global $dirs;
 		
+	if (file_exists($image_name)) {
+		_exec("rm -rf $image_name");
+		_exec("rm -rf {$dirs['images']}/*$image_name.img");
+		_exec("rm -rf {$dirs['mfsroots']}/*$image_name.gz");
+	}
+	
 	_exec("mkdir $image_name");
 	_exec("cd $image_name; mkdir lib bin cf conf.default dev etc ftmp mnt libexec proc root sbin tmp usr var");
 	_exec("cd $image_name; mkdir etc/inc");
@@ -802,118 +792,145 @@ function populate_libs($image_name) {
 	_log("added libraries");	
 }
 
+$h["populate ataidle"] = "adds ataidle to the given \"image_name\"";
+function populate_ataidle($image_name) {
+	
+	_exec("cd /usr/ports/sysutils/ataidle/work/ataidle-1.0/; ".
+		"install -s ataidle $image_name/usr/local/sbin");
+	
+	_log("added ataidle");
+}
 
 $h["populate everything"] = "adds all packages, scripts and config files to the given \"image_name\"";
 function populate_everything($image_name) {
-
-	$funcs = get_defined_functions();
-	$funcs = $funcs['user'];
-
-	foreach($funcs as $func) {
-		if($func[0] == '_') {	// ignore internal functions
-			continue;
-		}
-		$func = explode("_", $func);
- 		if($func[0] == "populate" && $func[1] != "everything") {
-			$f = "populate_" . $func[1];
-			$f($image_name);
-		}
-	}
-
+	
+	populate_base($image_name);
+	populate_etc($image_name);
+	populate_defaultconf($image_name);
+	populate_zoneinfo($image_name);
+	populate_syslogd($image_name);
+	populate_clog($image_name);
+	populate_php($image_name);
+	populate_minihttpd($image_name);
+	populate_msntp($image_name);
+	populate_ataidle($image_name);
+	populate_bpalogin($image_name);
+	populate_dhclient($image_name);
+	populate_dhcprelay($image_name);
+	populate_dhcpserver($image_name);
+	populate_dnsmasq($image_name);
+	populate_ezipupdate($image_name);
+	populate_mpd($image_name);
+	populate_racoon($image_name);
+	populate_ucdsnmp($image_name);
+	populate_wol($image_name);
+	populate_tools($image_name);
+	populate_phpconf($image_name);
+	populate_webgui($image_name);
+	populate_captiveportal($image_name);
+	populate_libs($image_name);
 }
 
 // TODO: this is quite large and ugly
-$h["package"] = "package the specified image directory into an .img for the specified platform and stamp as version (i.e. package generic-pc 1.3b2copy testimage)";
-function package($platform, $version, $image_name) {
-	global $dirs, $mfsroot_size, $generic_pc_size, $generic_pc_smp_size, $wrap_soekris_size;
-	
-	_log("packaging $image_name $version for $platform...");
+$h["package"] = "package the specified image directory into an .img for the specified platform  (i.e. package generic-pc testimage)";
+function package($platform, $image_name) {
+	global $dirs;
+	global $mfsroot_pad, $image_pad;
 	
 	_set_permissions($image_name);
 	
 	if(!file_exists("tmp")) {
 		mkdir("tmp");
 		mkdir("tmp/mnt");
+		mkdir("tmp/stage");
 	}
 	
 	$kernel = _platform_to_kernel($platform);
 	
-	// mfsroots
-	if(!file_exists($dirs['mfsroots'] ."/$platform-$version-". basename($image_name) .".gz")) {
-				
-		_exec("dd if=/dev/zero of=tmp/mfsroot bs=1k count=$mfsroot_size");
-		_exec("mdconfig -a -t vnode -f tmp/mfsroot -u 0");
-	
-		_exec("bsdlabel -rw md0 auto");
-		_exec("newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md0c");
-	
-		_exec("mount /dev/md0c tmp/mnt");
-		_exec("cd tmp/mnt; tar -cf - -C $image_name ./ | tar -xpf -");
-		
-		if($platform == "generic-pc-smp") {
-			_exec("cd tmp/mnt/usr/local/www/; patch < ". $dirs['files'] ."/generic-pc-smp.patch");
-		}
-		
-		// modules		
-		mkdir("tmp/mnt/boot");
-		mkdir("tmp/mnt/boot/kernel");
-		if($platform == "generic-pc" || 
-			$platform == "generic-pc-cdrom" ||
-			$platform == "generic-pc-smp") {
-			_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/acpi/acpi/acpi.ko tmp/mnt/boot/kernel/");
-		}
-		_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/dummynet/dummynet.ko tmp/mnt/boot/kernel/");
-		_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/ipfw/ipfw.ko tmp/mnt/boot/kernel/");
-		
-		_exec("echo \"$version\" > tmp/mnt/etc/version");
-		_exec("echo `date` > tmp/mnt/etc/version.buildtime");
-		_exec("echo $platform > tmp/mnt/etc/platform");
-	
-		_exec("umount tmp/mnt");
-		_exec("mdconfig -d -u 0");
-		_exec("gzip -9 tmp/mfsroot");
-		_exec("mv tmp/mfsroot.gz ". $dirs['mfsroots'] ."/$platform-$version-". basename($image_name) .".gz");
+	// mfsroot
+
+	// add rootfs
+	_exec("cd tmp/stage; tar -cf - -C $image_name ./ | tar -xpf -");
+
+	// ...system modules		
+	_exec("mkdir tmp/stage/boot");
+	_exec("mkdir tmp/stage/boot/kernel");
+	if ($platform == "generic-pc" || 
+		$platform == "generic-pc-cdrom") {
+		_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/acpi/acpi/acpi.ko tmp/stage/boot/kernel/");
 	}
 	
+	// ...stamps
+	_exec("echo \"". basename($image_name) ."\" > tmp/stage/etc/version");
+	_exec("echo `date` > tmp/stage/etc/version.buildtime");
+	_exec("echo $platform > tmp/stage/etc/platform");
+	
+	// get size and package mfsroot
+	$mfsroot_size = _get_dir_size("tmp/stage") + $mfsroot_pad;
+	
+	_exec("dd if=/dev/zero of=tmp/mfsroot bs=1k count=$mfsroot_size");
+	_exec("mdconfig -a -t vnode -f tmp/mfsroot -u 0");
+
+	_exec("bsdlabel -rw md0 auto");
+	_exec("newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md0c");
+
+	_exec("mount /dev/md0c tmp/mnt");
+	_exec("cd tmp/mnt; tar -cf - -C ../stage ./ | tar -xpf -");
+	
+	_log("---- $platform - " . basename($image_name) . " - mfsroot ----");
+	_exec("df tmp/mnt");
+
+	_exec("umount tmp/mnt");
+	_exec("rm -rf tmp/stage/*");
+	_exec("mdconfig -d -u 0");
+	_exec("gzip -9 tmp/mfsroot");
+	_exec("mv tmp/mfsroot.gz {$dirs['mfsroots']}/$platform-". basename($image_name) .".gz");
+	
+
+
 	// .img
-	if($platform != "generic-pc-cdrom" && !file_exists($dirs['images'] ."/$platform-$version-". basename($image_name) .".img")) {
+	if ($platform != "generic-pc-cdrom") {
 		
-		if($platform == "generic-pc") {
-			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$generic_pc_size");
-		} else if($platform == "generic-pc-smp") {
-			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$generic_pc_smp_size");
-		} else {
-			_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$wrap_soekris_size");
-		}
-			
+		// add mfsroot
+		_exec("cp {$dirs['mfsroots']}/$platform-". basename($image_name) .".gz ".
+			"tmp/stage/mfsroot.gz");
+		
+		// ...boot
+		_exec("mkdir tmp/stage/boot");
+		_exec("mkdir tmp/stage/boot/kernel");
+	    _exec("cp /usr/obj/usr/src/sys/boot/i386/loader/loader tmp/stage/boot/");
+		_exec("cp {$dirs['boot']}/$platform/loader.rc tmp/stage/boot/");
+	
+		// ...conf
+		_exec("mkdir tmp/stage/conf");
+		_exec("cp {$dirs['phpconf']}/config.xml tmp/stage/conf");
+		_exec("cp /sys/i386/compile/$kernel/kernel.gz tmp/stage/kernel.gz");
+		
+		// get size and populate
+		$image_size = _get_dir_size("tmp/stage") + $asterisk_size + $image_pad;
+		$image_size += 16 - ($image_size % 16);
+		
+		_exec("dd if=/dev/zero of=tmp/image.bin bs=1k count=$image_size");			
 		_exec("mdconfig -a -t vnode -f tmp/image.bin -u 0");
 		_exec("bsdlabel -Brw -b /usr/obj/usr/src/sys/boot/i386/boot2/boot md0 auto");
 		_exec("newfs -O 1 -b 8192 -f 1024 -o space -m 0 /dev/md0a");
-		_exec("mount /dev/md0a tmp/mnt");
-		_exec("cp ". $dirs['mfsroots'] ."/$platform-$version-". basename($image_name) .".gz tmp/mnt/mfsroot.gz");
 		
-		// boot
-		mkdir("tmp/mnt/boot");
-		mkdir("tmp/mnt/boot/kernel");
-	    _exec("cp /usr/obj/usr/src/sys/boot/i386/loader/loader tmp/mnt/boot/");
-		$platform == "generic-pc-smp" ?
-		_exec("cp ". $dirs['boot'] ."/generic-pc/loader.rc tmp/mnt/boot/") :
-		_exec("cp ". $dirs['boot'] ."/$platform/loader.rc tmp/mnt/boot/");
-	
-		// conf
-		mkdir("tmp/mnt/conf");
-		_exec("cp ". $dirs['phpconf'] ."/config.xml tmp/mnt/conf");
-		_exec("cp /sys/i386/compile/$kernel/kernel.gz tmp/mnt/kernel.gz");		
+		_exec("mount /dev/md0a tmp/mnt");
+		_exec("cd tmp/mnt; tar -cf - -C ../stage ./ | tar -xpf -");
+		_log("---- $platform - " . basename($image_name) . " - system partition ----");
+		_exec("df tmp/mnt");
 		_exec("umount tmp/mnt");
+		
+		// cleanup
 		_exec("mdconfig -d -u 0");
 		_exec("gzip -9 tmp/image.bin");
-		_exec("mv tmp/image.bin.gz ". $dirs['images'] ."/$platform-$version-". basename($image_name) .".img");
+		_exec("mv tmp/image.bin.gz {$dirs['images']}/m0n0wall-$platform-". basename($image_name) .".img");
 		
 	// .iso
 	} else if($platform == "generic-pc-cdrom" && !file_exists($dirs['images'] ."/$platform-$version-". basename($image_name) .".iso")) {
 
 		_exec("mkdir tmp/cdroot");
-		_exec("cp ". $dirs['mfsroots'] ."/$platform-$version-". basename($image_name) .".gz tmp/cdroot/mfsroot.gz");
+		_exec("cp ". $dirs['mfsroots'] ."/$platform-". basename($image_name) .".gz tmp/cdroot/mfsroot.gz");
 		_exec("cp /sys/i386/compile/$kernel/kernel.gz tmp/cdroot/kernel.gz");		
 
 		_exec("mkdir tmp/cdroot/boot");
@@ -926,7 +943,7 @@ function package($platform, $version, $image_name) {
 			"-c \"boot/boot.catalog\" -d -r -publisher \"m0n0.ch\" ".
 			"-p \"Your Name\" -V \"m0n0wall_cd\" -o \"m0n0wall.iso\" tmp/cdroot/");
 			
-		_exec("mv m0n0wall.iso ". $dirs['images'] ."/cdrom-$version-". basename($image_name) .".iso");
+		_exec("mv m0n0wall.iso ". $dirs['images'] ."/m0n0wall-cdrom-". basename($image_name) .".iso");
 	}
 	
 	_exec("rm -rf tmp");
@@ -972,14 +989,12 @@ function _is_patched($package_version) {
 function _platform_to_kernel($platform) {
 	global $platforms;
 	
-	if(array_search($platform, $platforms) === false) {
-		_usage(3);
-	}
-	
 	if($platform == "generic-pc-cdrom" || $platform == "generic-pc") {
 		$kernel = "M0N0WALL_GENERIC";
 	} else if($platform == "generic-pc-smp") {
 		$kernel = "M0N0WALL_GENERIC_SMP";
+	} else if($platform == "wrap") {
+		$kernel = "M0N0WALL_WRAPALIX";
 	} else {
 		$kernel = "M0N0WALL_" . strtoupper($platform);
 	}
@@ -990,16 +1005,24 @@ function _platform_to_kernel($platform) {
 
 function _exec($cmd) {
 	$ret = 0;
+	_log($cmd);
 	passthru($cmd, $ret);
 	if($ret != 0) {
 		_log("COMMAND FAILED: $cmd");
-		exit();
+		exit(1);
 	}
 }
 
 
 function _log($msg) {
 	print "$msg\n";
+}
+
+
+function _get_dir_size($dir) {
+	exec("du -d 0 $dir", $out);
+	$out = preg_split("/\s+/", $out[0]);
+	return $out[0];
 }
 
 
@@ -1023,49 +1046,36 @@ function _prompt($msg, $duration=0) {
 	}
 }
 
-// TODO: this needs help
-// - maybe split into error and usage messages
-// - this is could be generated
-function _usage($err=0) {
-	global $error_codes;
+
+function _usage() {
 	
-	print "./m0n0dev.php patch everything\n";
-	print "./m0n0dev.php patch bootloader\n";
-	print "./m0n0dev.php patch kernel\n";
-	print "./m0n0dev.php patch syslogd\n";
-	print "./m0n0dev.php build everything\n";
-	print "./m0n0dev.php build ports\n";
-	print "./m0n0dev.php build packages\n";
-	print "./m0n0dev.php build kernels\n";
-	print "./m0n0dev.php build kernel kernel_name\n";
-	print "./m0n0dev.php build bootloader\n";
-	print "./m0n0dev.php build tools\n";
-	print "./m0n0dev.php populate everything iamge_name\n";
-	print "./m0n0dev.php package platform_name version_string image_name\n";
-	print "./m0n0dev.php package all version_string image_name\n";
-	print "./m0n0dev.php update\n";
+	print "\n";
+	print "./m0n0dev.php new image_name             start a new image\n";
+	print "./m0n0dev.php patch something            patch a target\n";
+	print "./m0n0dev.php build something            build a target\n";
+	print "./m0n0dev.php parsecheck                 check for stupid mistakes\n";
+	print "./m0n0dev.php populate something image   populate an image with a target\n";
+	print "./m0n0dev.php package platform image     package image for specified platform\n";
 	
-	print "Help is available by prefixing the command with \"help\" (i.e. help create)\n";
+	print "\nHelp is available by prefixing the command with \"help\" (i.e. help patch)\n\n";
 	
-	if($err != 0) {
-		print "\n";
-		_log($error_codes[$err]);
-	}
-	
-	exit($err);
+	exit(1);
 }
 
 
-// TODO: I could generate these...
-$h["patch"] = "available patch options: bootloader, kernel, syslogd, everything";
-$h["build"] = "available build options: kernel, kernels, syslogd, clog, php, minihttpd, ".
-	"dhcpserver, dhcprelay, dnsmasq, msntp, wol, ezipupdate, bpalogin, racoon, mpd, ".
-	"ucdsnmp, tools, bootloader, everything";
-$h["populate"] = "available populate options: base, etc, defaultconf, zoneinfo, syslogd, ".
-	"clog, php, minihttpd, dhclient, dhcpserver, dhcprelay, dnsmasq, msntp, wol, ".
-	"ezipupdate, bpalogin, mpd, racoon, ucdsnmp, tools, phpconf, webgui, captiveportal, ".
-	"libs, everything";
+// DONE by rOger Eisenecher: I could generate these...
+$functions = get_defined_functions();
+sort($functions["user"]);
+foreach ($functions["user"] as $func) {
+	$parts = explode('_', $func, 2);
+	$group = $parts[0];
+	$f = $parts[1];
+	$funcs["$group"][] = $f;
+}
 
+$h["patch"] = "available patch options: " . implode(", ", $funcs["patch"]);
+$h["build"] = "available build options: " . implode(", ", $funcs["build"]);
+$h["populate"] = "available populate options: " . implode(", ", $funcs["populate"]);
 
 // --[ command line parsing ]--------------------------------------------------
 
@@ -1073,38 +1083,31 @@ $h["populate"] = "available populate options: base, etc, defaultconf, zoneinfo, 
 if($argc == 1) {
 	_usage();
 
-// phone home and check version
-} else if($argv[1] == "update") {
-	_update();
-	exit();
-
 // here's some help if it's available
 } else if($argv[1] == "help") {
 	// not enough arguments
 	if($argc == 2) {
-		_usage();
+		_log("Not enough arguments provided for help");
 	}
 	// form a command name and see if it's in the help array
 	$c = implode(" ", array_slice($argv, 2));
 	array_key_exists($c, $h) ? 
 		_prompt($h[$c]) : 
-		print "no help available on ($c)! :(\n";
+		_log("no help available on ($c)! :(");;
 
-// create a new image directory
-} else if($argv[1] == "create") {
-	// construct an absolute path to the image
-	$image_name = $dirs['images']. "/" . rtrim($argv[2], "/");
-	// create the directory structure if this image's name isn't taken
-	file_exists($image_name) ?
-		_usage(6) :
-		create($image_name);
+} else if ($argv[1] == "new") {
+	
+	$image_name = "{$dirs['images']}/" . rtrim($argv[2], "/");
+	create($image_name);
+	populate_everything($image_name);
+
 
 // patch functions are all defined with no arguments
 } else if($argv[1] == "patch") {
 	$f = implode("_", array_slice($argv, 1));
 	function_exists($f) ?
 		$f() :
-		_usage(2);		
+		_log("Invalid patch command!");		
 
 // build functions are all defined with no arguments except for "build_kernel"
 } else if($argv[1] == "build") {
@@ -1114,7 +1117,7 @@ if($argc == 1) {
 		$f = implode("_", array_slice($argv, 1));
 		function_exists($f) ?
 			$f() :
-			_usage(2);
+			_log("Invalid build command!");
 	}
 
 // populate functions are all defined with a single argument:
@@ -1124,42 +1127,50 @@ if($argc == 1) {
 	$f = implode("_", array_slice($argv, 1, 2));
 	// not a valid function, show usage
 	if(!function_exists($f)) {
-		_usage(2);
+		_log("Invalid populate command!");
 	}
 	// construct an absolute path to the image
 	$image_name = $dirs['images']. "/" . rtrim($argv[3], "/");
 	// not a valid image, show usage
 	if(!file_exists($image_name)) {
-		_usage(5);
+		_log("Image does not exist!");
 	}
 	$f($image_name);
 
 
-// the package function is defined with three arguments:
-// (platform, version, image_name)
+// the package function is defined with two arguments:
+// (platform, image_name)
 } else if($argv[1] == "package") {
 	// construct an absolute path to the image
-	$image_name = $dirs['images']. "/" . rtrim($argv[4], "/");
+	$image_name = $dirs['images']. "/" . rtrim($argv[3], "/");
 	// not a valid image, show usage
 	if(!file_exists($image_name)) {
-		_usage(5);
+		_log("Image does not exist!");
 	}
 	// we're packaging all platforms go right ahead
 	if($argv[2] == "all") {
 		foreach($platforms as $platform) {
-			package($platform, $argv[3], $image_name);			
+			package($platform, $image_name);			
 		}
 	// check the specific platform before attempting to package
 	} else if(in_array($argv[2], $platforms)) {
-		package($argv[2], $argv[3], $image_name);
+		package($argv[2], $image_name);
 	// not a valid package command...
 	} else {
-		_usage(3);
+		_log("Invalid packaging command!");
 	}
+
+} else if ($argv[1] == "parsecheck") {
+
+	passthru("find {$dirs['webgui']}/ -type f -name \"*.php\" -exec php -l {} \; -print | grep Parse");
+	passthru("find {$dirs['webgui']}/ -type f -name \"*.inc\" -exec php -l {} \; -print | grep Parse");
+	passthru("find {$dirs['phpconf']}/ -type f -name \"*rc.*\" -exec php -l {} \; -print | grep Parse");
+	passthru("find {$dirs['phpconf']}/ -type f -name \"*.inc\" -exec php -l {} \; -print | grep Parse");
 
 // hmmm, don't have any verbs like that!
 } else {
-	_usage(2);
+	_log("Huh?");
+	exit(1);
 }
 
 exit();
