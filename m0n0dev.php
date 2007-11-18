@@ -45,11 +45,12 @@ $bpalogin_version		= "bpalogin-2.0.2";
 $ucd_snmp_version		= "ucd-snmp-4.2.7";
 $mpd_version			= "mpd-3.18";
 $ipsec_tools_version 	= "ipsec-tools-0.7";
+$siproxd_version 	    = "siproxd-0.6.0";
 
 
 // --[ image sizes ]-----------------------------------------------------------
 
-$mfsroot_pad	= 1024;
+$mfsroot_pad	= 2304;     // this gives roughly 15MB and matches official >=1.3b3
 $image_pad		= 1024;
 
 
@@ -431,6 +432,32 @@ function build_ucdsnmp() {
 }
 
 
+$h["build siproxd"] = "(re)builds siproxd and installs libosip2 library if not found";
+function build_siproxd() {
+	
+	global $dirs, $siproxd_version;
+
+    if (!file_exists("/usr/local/lib/libosip2.so.3")) {
+        _exec("cd /usr/ports/net/libosip2; make clean; make install clean");
+        _log("built libosip2 library");
+    }
+
+	if(!file_exists($dirs['packages'] ."/$siproxd_version")) {
+		_exec("cd ". $dirs['packages'] ."; ".
+				"fetch http://downloads.sourceforge.net/siproxd/$siproxd_version.tar.gz;" .
+				"tar zxf $siproxd_version.tar.gz; " .
+                "patch < ". $dirs['patches'] ."/user/siproxd.patch");
+		_log("fetched, untarred and patched $siproxd_version");
+	}
+
+	_exec("cd ". $dirs['packages'] ."/$siproxd_version; ".
+			"./configure; make");
+	
+	_log("built siproxd");
+
+}
+
+
 $h["build tools"] = "(re)builds the little \"helper tools\" that m0n0wall needs (choparp, stats.cgi, minicron, verifysig)";
 function build_tools() {
 	global $dirs;
@@ -485,6 +512,7 @@ function build_ports() {
 	build_racoon();
 	build_mpd();
 	build_ataidle();
+	build_siproxd();
 }
 
 $h["build everything"] = "(re)builds all packages, kernels and the bootloader";
@@ -541,8 +569,8 @@ function populate_etc($image_name) {
 	_exec("cp ". $dirs['etc'] ."/pubkey.pem $image_name/etc/");
 	_log("added etc");
 	
-	_exec("ln -s /var/etc/resolv.conf $image_name/etc/resolv.conf");
-	_exec("ln -s /var/etc/hosts $image_name/etc/hosts");
+	_exec("ln -sf /var/etc/resolv.conf $image_name/etc/resolv.conf");
+	_exec("ln -sf /var/etc/hosts $image_name/etc/hosts");
 	_log("added resolv.conf and hosts symlinks");
 	
 }
@@ -618,6 +646,7 @@ function populate_dhclient($image_name) {
 	
 	_exec("cp /sbin/dhclient $image_name/sbin/");
 	_exec("cp ". $dirs['tools'] ."/dhclient-script $image_name/sbin/");
+	_exec("chmod a+rx $image_name/sbin/dhclient-script");
 	
 	_log("added dhclient");
 }
@@ -733,6 +762,16 @@ function populate_ucdsnmp($image_name) {
 	_log("added ucd-snmp");
 }
 
+$h["populate siproxd"] = "adds the siproxd to the given \"image_name\"";
+function populate_siproxd($image_name) {
+	global $dirs, $siproxd_version;
+	
+	_exec("cd ". $dirs['packages'] ."/$siproxd_version; ".
+			"install -s src/siproxd $image_name/usr/local/sbin");
+	
+	_log("added siprxod");
+}
+
 
 $h["populate tools"] = "adds the m0n0wall \"helper tools\" to the given \"image_name\"";
 function populate_tools($image_name) {
@@ -824,6 +863,7 @@ function populate_everything($image_name) {
 	populate_racoon($image_name);
 	populate_ucdsnmp($image_name);
 	populate_wol($image_name);
+	populate_siproxd($image_name);
 	populate_tools($image_name);
 	populate_phpconf($image_name);
 	populate_webgui($image_name);
@@ -876,6 +916,11 @@ function package($platform, $image_name) {
 
 	_exec("mount /dev/md0c tmp/mnt");
 	_exec("cd tmp/mnt; tar -cf - -C ../stage ./ | tar -xpf -");
+
+    // dummynet.ko and ipfw.ko reside in mfsroot/boot/kernel
+	_exec("mkdir -p tmp/mnt/boot/kernel");
+	_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/dummynet/dummynet.ko tmp/mnt/boot/kernel/");
+	_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/ipfw/ipfw.ko tmp/mnt/boot/kernel/");
 	
 	_log("---- $platform - " . basename($image_name) . " - mfsroot ----");
 	_exec("df tmp/mnt");
