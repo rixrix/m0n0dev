@@ -46,7 +46,7 @@ $ucd_snmp_version		= "ucd-snmp-4.2.7";
 $mpd_version			= "mpd-3.18";
 $ipsec_tools_version 	= "ipsec-tools-0.7";
 $siproxd_version 	    = "siproxd-0.6.0";
-
+$ataidle_version        = "ataidle-2.3";
 
 // --[ image sizes ]-----------------------------------------------------------
 
@@ -224,18 +224,31 @@ function build_php() {
 		_log("installed autoconf");
 	}
 	
-	if(!file_exists($dirs['packages'] ."/$php_version")) {
+	if(!file_exists($dirs['packages'] ."/$php_version.tar.gz")) {
 		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://br.php.net/distributions/$php_version.tar.gz;" .
-				"tar zxf $php_version.tar.gz");
-		_log("fetched and untarred $php_version");
-		
-		_exec("cd ". $dirs['packages'] ."/$php_version/ext; ".
-				"fetch http://m0n0.ch/wall/downloads/freebsd-4.11/$radius_version.tgz; ".
-				"tar zxf $radius_version.tgz; ".
-				"mv $radius_version radius");
-		_log("fetched and untarred $radius_version");
+			  "fetch http://br.php.net/distributions/$php_version.tar.gz");
+		_log("fetched $php_version");
 	}
+	
+	if (!is_dir($dirs['packages'] ."/$php_version")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+              "tar zxf $php_version.tar.gz");
+        _log("untarred $php_version");
+
+        if (!file_exists($dirs['packages'] ."/$php_version/ext/$radius_version.tgz")) {
+            _exec("cd ". $dirs['packages'] ."/$php_version/ext; ".
+                  "fetch http://m0n0.ch/wall/downloads/freebsd-4.11/$radius_version.tgz");
+            _log("fetched $radius_version");
+        }
+        
+        if (!is_dir($dirs['packages'] ."/$php_version/ext/radius")) {
+            _exec("cd ". $dirs['packages'] ."/$php_version/ext; ".
+                  "tar zxf $radius_version.tgz; ".
+                  "mv $radius_version radius");
+		    _log("untarred $radius_version");
+		}
+	}
+	
 	_exec("cd ". $dirs['packages'] ."/$php_version; ".
 			"rm configure; ".
 			"./buildconf --force; ".
@@ -250,21 +263,27 @@ $h["build minihttpd"] = "(re)builds and patches mini_httpd";
 function build_minihttpd() {
 	global $dirs, $mini_httpd_version;
 	
-	if(!file_exists($dirs['packages'] ."/$mini_httpd_version")) {
+	if(!file_exists($dirs['packages'] ."/$mini_httpd_version.tar.gz")) {
 		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://www.acme.com/software/mini_httpd/$mini_httpd_version.tar.gz; ".
-				"tar zxf $mini_httpd_version.tar.gz");
-		_log("fetched and untarred $mini_httpd_version");
+              "fetch http://www.acme.com/software/mini_httpd/$mini_httpd_version.tar.gz");
+		_log("fetched $mini_httpd_version");
 	}
+	
+	if (!is_dir($dirs['packages'] ."/$mini_httpd_version")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+              "tar zxf $mini_httpd_version.tar.gz");
+        _log("untarred $mini_httpd_version");				
+	}
+	
 	if(!_is_patched($mini_httpd_version)) {
 		_exec("cd ". $dirs['packages'] ."/$mini_httpd_version; patch < ". $dirs['patches'] . "/packages/mini_httpd.patch");
 		_stamp_package_as_patched($mini_httpd_version);
 	}
+	
 	_exec("cd ". $dirs['packages'] ."/$mini_httpd_version; make clean; make");
 
 	_log("built minihttpd");
 }
-
 
 $h["build dhcpserver"] = "(re)builds the ISC DHCP server (NOTE: dialog must be confirmed)";
 function build_dhcpserver() {
@@ -310,12 +329,18 @@ $h["build wol"] = "(re)builds wol (wake-on-lan client)";
 function build_wol() {
 	global $dirs, $wol_version;
 
-	if(!file_exists($dirs['packages'] ."/$wol_version")) {
-		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://heanet.dl.sourceforge.net/sourceforge/ahh/$wol_version.tar.gz; ".
-				"tar zxf $wol_version.tar.gz");
-		_log("fetched and untarred $wol_version");
+	if(!file_exists($dirs['packages'] ."/$wol_version.tar.gz")) {
+       _exec("cd ". $dirs['packages'] ."; ".
+             "fetch http://heanet.dl.sourceforge.net/sourceforge/ahh/$wol_version.tar.gz");
+       _log("fetched $wol_version");
 	}
+	
+	if (!is_dir($dirs['packages'] ."/$wol_version")) {
+        _exec("cd ". $dirs['packages'] ."; ".			  
+              "tar zxf $wol_version.tar.gz");	
+		_log("untarred $wol_version");			  
+	}
+	
 	_exec("cd ". $dirs['packages'] ."/$wol_version; ".
 			"./configure --disable-nls; ". 
 			"make");
@@ -328,12 +353,18 @@ $h["build ezipupdate"] = "(re)builds and patches ez-ipupdate (dynamic dns update
 function build_ezipupdate() {
 	global $dirs, $ez_ipupdate_version;
 	
-	if(!file_exists($dirs['packages'] ."/$ez_ipupdate_version")) {
-		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://dyn.pl/client/UNIX/ez-ipupdate/$ez_ipupdate_version.tar.gz; ".
-				"tar zxf $ez_ipupdate_version.tar.gz");
-		_log("fetched and untarred $ez_ipupdate_version");
+	if (!file_exists($dirs['packages'] ."/$ez_ipupdate_version.tar.gz")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+        "fetch http://dyn.pl/client/UNIX/ez-ipupdate/$ez_ipupdate_version.tar.gz");
+		_log("fetched $ez_ipupdate_version");
 	}
+	
+	if (!is_dir($dirs['packages'] ."/$ez_ipupdate_version")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+              "tar zxf $ez_ipupdate_version.tar.gz");
+		_log("untarred $ez_ipupdate_version");	
+	}
+	
 	if(!_is_patched($ez_ipupdate_version)) {
 		_exec("cd ". $dirs['packages'] ."/$ez_ipupdate_version; ".
 				"patch < ". $dirs['patches'] ."/packages/ez-ipupdate.c.patch");
@@ -351,12 +382,18 @@ $h["build bpalogin"] = "(re)builds BPALogin (Big Pond client)";
 function build_bpalogin() {
 	global $dirs, $bpalogin_version;
 	
-	if(!file_exists($dirs['packages'] ."/$bpalogin_version")) {
-		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://bpalogin.sourceforge.net/download/$bpalogin_version.tar.gz; ".
-				"tar zxf $bpalogin_version.tar.gz");
-		_log("fetched and untarred $bpalogin_version");
+	if(!file_exists($dirs['packages'] ."/$bpalogin_version.tar.gz")) {
+       _exec("cd ". $dirs['packages'] ."; ".
+             "fetch http://bpalogin.sourceforge.net/download/$bpalogin_version.tar.gz");
+       _log("fetched $bpalogin_version");
 	}
+	
+	if (!is_dir($dirs['packages'] ."/$bpalogin_version")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+        "tar zxf $bpalogin_version.tar.gz");
+		_log("untarred $bpalogin_version");
+	}
+		
 	_exec("cd ". $dirs['packages'] ."/$bpalogin_version; ".
 			"./configure; ".
 			"make");
@@ -412,14 +449,17 @@ $h["build ucdsnmp"] = "(re)builds and patches UCD-SNMP";
 function build_ucdsnmp() {
 	global $dirs, $ucd_snmp_version;
 
-	if(!file_exists($dirs['packages'] ."/$ucd_snmp_version.tar.gz")) {
-		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://kent.dl.sourceforge.net/sourceforge/net-snmp/$ucd_snmp_version.tar.gz");
+	if (!file_exists($dirs['packages'] ."/$ucd_snmp_version.tar.gz")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+              "fetch http://kent.dl.sourceforge.net/sourceforge/net-snmp/$ucd_snmp_version.tar.gz");
 		_log("fetched $ucd_snmp_version");
 	}
-	if(!file_exists($dirs['packages'] ."/$ucd_snmp_version")) {
-		_exec("cd ". $dirs['packages'] ."; tar zxf $ucd_snmp_version.tar.gz");
+	
+	if (!is_dir($dirs['packages'] ."/$ucd_snmp_version")) {
+        _exec("cd ". $dirs['packages'] ."; tar zxf $ucd_snmp_version.tar.gz");
+		_log("untarred $ucd_snmp_version");		
 	}
+	
 	if(!_is_patched("$ucd_snmp_version")) {
 		_exec("cd ". $dirs['packages'] ."/$ucd_snmp_version; ". 
 				"patch < ". $dirs['patches'] ."/packages/ucd-snmp.patch");
@@ -450,14 +490,19 @@ function build_siproxd() {
         _log("built libosip2 library");
     }
 
-	if(!file_exists($dirs['packages'] ."/$siproxd_version")) {
-		_exec("cd ". $dirs['packages'] ."; ".
-				"fetch http://downloads.sourceforge.net/siproxd/$siproxd_version.tar.gz;" .
-				"tar zxf $siproxd_version.tar.gz; " .
-                "patch < ". $dirs['patches'] ."/user/siproxd.patch");
-		_log("fetched, untarred and patched $siproxd_version");
+	if (!file_exists($dirs['packages'] ."/$siproxd_version.tar.gz")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+              "fetch http://downloads.sourceforge.net/siproxd/$siproxd_version.tar.gz;");
+		_log("fetched $siproxd_version");
 	}
 
+	if (!is_dir($dirs['packages'] ."/$siproxd_version")) {
+        _exec("cd ". $dirs['packages'] ."; ".
+              "tar zxf $siproxd_version.tar.gz; " .
+              "patch < ". $dirs['patches'] ."/user/siproxd.patch");
+		_log("untarred and patched $siproxd_version");
+	}
+	
 	_exec("cd ". $dirs['packages'] ."/$siproxd_version; ".
 			"./configure; make");
 	
@@ -833,17 +878,16 @@ $h["populate libs"] = "adds the required libraries (using mklibs.pl) to the give
 function populate_libs($image_name) {
 	global $dirs;
 	
-	_exec("perl ". $dirs['minibsd'] ."/mklibs.pl $image_name > tmp.libs");
-	_exec("perl ". $dirs['minibsd'] ."/mkmini.pl tmp.libs / $image_name");
-	_exec("rm tmp.libs");
+	_exec("perl ". $dirs['minibsd'] ."/mklibs.pl $image_name > $image_name/tmp.libs");
+	_exec("perl ". $dirs['minibsd'] ."/mkmini.pl $image_name/tmp.libs / $image_name");
+	_exec("rm $image_name/tmp.libs");
 	
 	_log("added libraries");	
 }
-
 $h["populate ataidle"] = "adds ataidle to the given \"image_name\"";
 function populate_ataidle($image_name) {
 	
-	_exec("cd /usr/ports/sysutils/ataidle/work/ataidle-1.0/; ".
+	_exec("cd /usr/ports/sysutils/ataidle/work/$ataidle_version/; ".
 		"install -s ataidle $image_name/usr/local/sbin");
 	
 	_log("added ataidle");
@@ -889,9 +933,9 @@ function package($platform, $image_name) {
 	_set_permissions($image_name);
 	
 	if(!file_exists("tmp")) {
-		mkdir("tmp");
-		mkdir("tmp/mnt");
-		mkdir("tmp/stage");
+		_exec("mkdir -p tmp");
+		_exec("mkdir -p tmp/mnt");
+		_exec("mkdir -p tmp/stage");
 	}
 	
 	$kernel = _platform_to_kernel($platform);
@@ -902,8 +946,8 @@ function package($platform, $image_name) {
 	_exec("cd tmp/stage; tar -cf - -C $image_name ./ | tar -xpf -");
 
 	// ...system modules		
-	_exec("mkdir tmp/stage/boot");
-	_exec("mkdir tmp/stage/boot/kernel");
+	_exec("mkdir -p tmp/stage/boot");
+	_exec("mkdir -p tmp/stage/boot/kernel");
 	if ($platform == "generic-pc" || 
 		$platform == "generic-pc-cdrom") {
 		_exec("cp /sys/i386/compile/$kernel/modules/usr/src/sys/modules/acpi/acpi/acpi.ko tmp/stage/boot/kernel/");
@@ -950,13 +994,13 @@ function package($platform, $image_name) {
 			"tmp/stage/mfsroot.gz");
 		
 		// ...boot
-		_exec("mkdir tmp/stage/boot");
-		_exec("mkdir tmp/stage/boot/kernel");
+		_exec("mkdir -p tmp/stage/boot");
+		_exec("mkdir -p tmp/stage/boot/kernel");
 	    _exec("cp /usr/obj/usr/src/sys/boot/i386/loader/loader tmp/stage/boot/");
 		_exec("cp {$dirs['boot']}/$platform/loader.rc tmp/stage/boot/");
 	
 		// ...conf
-		_exec("mkdir tmp/stage/conf");
+		_exec("mkdir -p tmp/stage/conf");
 		_exec("cp {$dirs['phpconf']}/config.xml tmp/stage/conf");
 		_exec("cp /sys/i386/compile/$kernel/kernel.gz tmp/stage/kernel.gz");
 		
@@ -983,11 +1027,11 @@ function package($platform, $image_name) {
 	// .iso
 	} else if($platform == "generic-pc-cdrom" && !file_exists($dirs['images'] ."/$platform-$version-". basename($image_name) .".iso")) {
 
-		_exec("mkdir tmp/cdroot");
+		_exec("mkdir -p tmp/cdroot");
 		_exec("cp ". $dirs['mfsroots'] ."/$platform-". basename($image_name) .".gz tmp/cdroot/mfsroot.gz");
 		_exec("cp /sys/i386/compile/$kernel/kernel.gz tmp/cdroot/kernel.gz");		
 
-		_exec("mkdir tmp/cdroot/boot");
+		_exec("mkdir -p tmp/cdroot/boot");
 	    _exec("cp /usr/obj/usr/src/sys/boot/i386/cdboot/cdboot tmp/cdroot/boot/");		
 	    _exec("cp /usr/obj/usr/src/sys/boot/i386/loader/loader tmp/cdroot/boot/");
 		_exec("cp ". $dirs['boot'] ."/$platform/loader.rc tmp/cdroot/boot/");
