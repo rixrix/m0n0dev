@@ -204,6 +204,14 @@ function build_clog() {
 	_log("built clog");
 }
 
+$h["build hostapd"] = "(re)builds the hostapd binary";
+function build_hostapd() {
+
+	_exec("cd /usr/src/usr.sbin/wpa/hostapd; make clean; make; make install");	
+	
+	_log("built hostapd");
+}
+
 
 $h["build php"] = "(re)builds php and radius extension, also installs and configures autoconf if not already present";
 function build_php() {
@@ -520,6 +528,7 @@ function build_everything() {
 
 	build_syslogd();
 	build_clog();
+	build_hostapd();
 	build_packages();
 	build_ports();
 	build_tools();
