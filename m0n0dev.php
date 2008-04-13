@@ -30,7 +30,7 @@
     ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
     POSSIBILITY OF SUCH DAMAGE.
 */
-
+ 
 // Please set me to the path you checked out the m0n0wall FreeBSD 6 branch to.
 $dirs['mwroot'] = "/root/m0n0wall";	// no trailing slash please!
 
